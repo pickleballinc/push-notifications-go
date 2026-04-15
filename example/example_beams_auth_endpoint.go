@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/pusher/push-notifications-go"
+	pushnotifications "github.com/pickleballinc/pusher-go-sdk"
 )
 
 const (

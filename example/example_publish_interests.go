@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/pusher/push-notifications-go"
+	pushnotifications "github.com/pickleballinc/pusher-go-sdk"
 )
 
 func main() {

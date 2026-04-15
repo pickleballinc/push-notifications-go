@@ -11,7 +11,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	jwt "github.com/dgrijalva/jwt-go"
+	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/pkg/errors"
 )
 
