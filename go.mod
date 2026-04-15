@@ -1,10 +1,9 @@
 module github.com/pickleballinc/pusher-go-sdk
 
-go 1.21
+go 1.23
 
 require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
-	github.com/pkg/errors v0.9.1
 	github.com/smartystreets/goconvey v1.8.1
 )
 

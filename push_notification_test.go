@@ -2,7 +2,7 @@ package pushnotifications
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -109,7 +109,7 @@ func TestPushNotifications(t *testing.T) {
 						var serverRequestHandler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {} // no-op
 
 						successHttpHandler := func(w http.ResponseWriter, r *http.Request) {
-							lastHttpPayload, _ = ioutil.ReadAll(r.Body)
+							lastHttpPayload, _ = io.ReadAll(r.Body)
 							serverRequestHandler(w, r)
 						}
 						testServer := httptest.NewServer(http.HandlerFunc(successHttpHandler))
@@ -302,7 +302,7 @@ func TestPushNotifications(t *testing.T) {
 				var serverRequestHandler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {} // no-op
 
 				successHttpHandler := func(w http.ResponseWriter, r *http.Request) {
-					lastHttpPayload, _ = ioutil.ReadAll(r.Body)
+					lastHttpPayload, _ = io.ReadAll(r.Body)
 					serverRequestHandler(w, r)
 				}
 				testServer := httptest.NewServer(http.HandlerFunc(successHttpHandler))
@@ -448,7 +448,7 @@ func TestPushNotifications(t *testing.T) {
 				var serverRequestHandler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {} // no-op
 
 				successHttpHandler := func(w http.ResponseWriter, r *http.Request) {
-					lastHttpPayload, _ = ioutil.ReadAll(r.Body)
+					lastHttpPayload, _ = io.ReadAll(r.Body)
 					serverRequestHandler(w, r)
 				}
 				testServer := httptest.NewServer(http.HandlerFunc(successHttpHandler))

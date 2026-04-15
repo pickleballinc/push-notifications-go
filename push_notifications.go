@@ -3,8 +3,9 @@ package pushnotifications
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -12,7 +13,6 @@ import (
 	"unicode/utf8"
 
 	jwt "github.com/golang-jwt/jwt/v5"
-	"github.com/pkg/errors"
 )
 
 // The Pusher Push Notifications Server API client
@@ -99,7 +99,7 @@ func (pn *pushNotifications) GenerateToken(userId string) (map[string]interface{
 	}
 
 	if len(userId) > maxUserIdLength {
-		return nil, errors.Errorf(
+		return nil, fmt.Errorf(
 			"User Id ('%s') length too long (expected fewer than %d characters, got %d)",
 			userId, maxUserIdLength+1, len(userId))
 	}
@@ -112,7 +112,7 @@ func (pn *pushNotifications) GenerateToken(userId string) (map[string]interface{
 
 	tokenString, signingErrorErr := token.SignedString([]byte(pn.SecretKey))
 	if signingErrorErr != nil {
-		return nil, errors.Wrap(signingErrorErr, "Failed to sign the JWT token used for User Authentication")
+		return nil, fmt.Errorf("Failed to sign the JWT token used for User Authentication: %w", signingErrorErr)
 	}
 
 	tokenMap := map[string]interface{}{
@@ -135,7 +135,7 @@ func (pn *pushNotifications) PublishToInterests(interests []string, request map[
 
 	if len(interests) > 100 {
 		return "",
-			errors.Errorf("Too many interests supplied (%d): API only supports up to 100", len(interests))
+			fmt.Errorf("Too many interests supplied (%d): API only supports up to 100", len(interests))
 	}
 
 	for _, interest := range interests {
@@ -145,12 +145,12 @@ func (pn *pushNotifications) PublishToInterests(interests []string, request map[
 
 		if len(interest) > 164 {
 			return "",
-				errors.Errorf("Interest length is %d which is over 164 characters", len(interest))
+				fmt.Errorf("Interest length is %d which is over 164 characters", len(interest))
 		}
 
 		if !interestValidationRegex.MatchString(interest) {
 			return "",
-				errors.Errorf(
+				fmt.Errorf(
 					"Interest `%s` contains an forbidden character: "+
 						"Allowed characters are: ASCII upper/lower-case letters, "+
 						"numbers or one of _-=@,.:",
@@ -161,7 +161,7 @@ func (pn *pushNotifications) PublishToInterests(interests []string, request map[
 	request["interests"] = interests
 	bodyRequestBytes, err := json.Marshal(request)
 	if err != nil {
-		return "", errors.Wrap(err, "Failed to marshal the publish request JSON body")
+		return "", fmt.Errorf("Failed to marshal the publish request JSON body: %w", err)
 	}
 
 	URL := fmt.Sprintf(pn.baseEndpoint+"/publish_api/v1/instances/%s/publishes", pn.InstanceId)
@@ -173,29 +173,24 @@ func (pn *pushNotifications) PublishToUsers(users []string, request map[string]i
 		return "", errors.New("Must supply at least one user id")
 	}
 	if len(users) > maxNumUserIdsWhenPublishing {
-		return "", errors.New(
-			fmt.Sprintf("Too many user ids supplied. API supports up to %d, got %d", maxNumUserIdsWhenPublishing, len(users)),
-		)
+		return "", fmt.Errorf("Too many user ids supplied. API supports up to %d, got %d", maxNumUserIdsWhenPublishing, len(users))
 	}
 	for i, userId := range users {
 		if userId == "" {
 			return "", errors.New("Empty user ids are not valid")
 		}
 		if len(userId) > maxUserIdLength {
-			return "", errors.New(
-				fmt.Sprintf("User Id ('%s') length too long (expected fewer than %d characters, got %d)", userId, maxUserIdLength, len(userId)),
-			)
+			return "", fmt.Errorf("User Id ('%s') length too long (expected fewer than %d characters, got %d)", userId, maxUserIdLength, len(userId))
 		}
-		// test for invalid characters
 		if !utf8.ValidString(userId) {
-			return "", errors.New(fmt.Sprintf("User Id at index %d is not valid utf8", i))
+			return "", fmt.Errorf("User Id at index %d is not valid utf8", i)
 		}
 	}
 	// TODO: don't mutate `request`
 	request["users"] = users
 	bodyRequestBytes, err := json.Marshal(request)
 	if err != nil {
-		return "", errors.Wrap(err, "Failed to marshal the publish request JSON body")
+		return "", fmt.Errorf("Failed to marshal the publish request JSON body: %w", err)
 	}
 
 	URL := fmt.Sprintf("%s/publish_api/v1/instances/%s/publishes/users", pn.baseEndpoint, pn.InstanceId)
@@ -205,7 +200,7 @@ func (pn *pushNotifications) PublishToUsers(users []string, request map[string]i
 func (pn *pushNotifications) publishToAPI(url string, bodyRequestBytes []byte) (string, error) {
 	httpReq, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(bodyRequestBytes))
 	if err != nil {
-		return "", errors.Wrap(err, "Failed to prepare the publish request")
+		return "", fmt.Errorf("Failed to prepare the publish request: %w", err)
 	}
 
 	httpReq.Header.Add("Authorization", "Bearer "+pn.SecretKey)
@@ -214,13 +209,13 @@ func (pn *pushNotifications) publishToAPI(url string, bodyRequestBytes []byte) (
 
 	httpResp, err := pn.httpClient.Do(httpReq)
 	if err != nil {
-		return "", errors.Wrap(err, "Failed to publish notifications due to a network error")
+		return "", fmt.Errorf("Failed to publish notifications due to a network error: %w", err)
 	}
 
 	defer httpResp.Body.Close()
-	responseBytes, err := ioutil.ReadAll(httpResp.Body)
+	responseBytes, err := io.ReadAll(httpResp.Body)
 	if err != nil {
-		return "", errors.Wrap(err, "Failed to read publish notification response due to a network error")
+		return "", fmt.Errorf("Failed to read publish notification response due to a network error: %w", err)
 	}
 
 	switch httpResp.StatusCode {
@@ -228,7 +223,7 @@ func (pn *pushNotifications) publishToAPI(url string, bodyRequestBytes []byte) (
 		pubResponse := &publishResponse{}
 		err = json.Unmarshal(responseBytes, pubResponse)
 		if err != nil {
-			return "", errors.Wrap(err, "Failed to read publish notification response due to invalid JSON")
+			return "", fmt.Errorf("Failed to read publish notification response due to invalid JSON: %w", err)
 		}
 
 		return pubResponse.PublishId, nil
@@ -236,11 +231,10 @@ func (pn *pushNotifications) publishToAPI(url string, bodyRequestBytes []byte) (
 		pubErrorResponse := &errorResponse{}
 		err = json.Unmarshal(responseBytes, pubErrorResponse)
 		if err != nil {
-			return "", errors.Wrap(err, "Failed to read publish notification response due to invalid JSON")
+			return "", fmt.Errorf("Failed to read publish notification response due to invalid JSON: %w", err)
 		}
 
-		errorMessage := fmt.Sprintf("%s: %s", pubErrorResponse.Error, pubErrorResponse.Description)
-		return "", errors.Wrap(errors.New(errorMessage), "Failed to publish notification")
+		return "", fmt.Errorf("Failed to publish notification: %s: %s", pubErrorResponse.Error, pubErrorResponse.Description)
 	}
 }
 
@@ -250,7 +244,7 @@ func (pn *pushNotifications) DeleteUser(userId string) error {
 	}
 
 	if len(userId) > maxUserIdLength {
-		return errors.Errorf(
+		return fmt.Errorf(
 			"User Id ('%s') length too long (expected fewer than %d characters, got %d)",
 			userId, maxUserIdLength+1, len(userId))
 	}
@@ -262,7 +256,7 @@ func (pn *pushNotifications) DeleteUser(userId string) error {
 	URL := fmt.Sprintf("%s/customer_api/v1/instances/%s/users/%s", pn.baseEndpoint, pn.InstanceId, url.PathEscape(userId))
 	httpReq, err := http.NewRequest(http.MethodDelete, URL, nil)
 	if err != nil {
-		return errors.Wrap(err, "Failed to prepare the delete user request")
+		return fmt.Errorf("Failed to prepare the delete user request: %w", err)
 	}
 
 	httpReq.Header.Add("Authorization", "Bearer "+pn.SecretKey)
@@ -271,13 +265,13 @@ func (pn *pushNotifications) DeleteUser(userId string) error {
 
 	httpResp, err := pn.httpClient.Do(httpReq)
 	if err != nil {
-		return errors.Wrap(err, "Failed to delete user due to a network error")
+		return fmt.Errorf("Failed to delete user due to a network error: %w", err)
 	}
 
 	defer httpResp.Body.Close()
-	responseBytes, err := ioutil.ReadAll(httpResp.Body)
+	responseBytes, err := io.ReadAll(httpResp.Body)
 	if err != nil {
-		return errors.Wrap(err, "Failed to read delete user response due to a network error")
+		return fmt.Errorf("Failed to read delete user response due to a network error: %w", err)
 	}
 
 	switch httpResp.StatusCode {
@@ -287,12 +281,9 @@ func (pn *pushNotifications) DeleteUser(userId string) error {
 		errResponse := &errorResponse{}
 		err = json.Unmarshal(responseBytes, errResponse)
 		if err != nil {
-			return errors.Wrap(err, "Failed to read delete user response due to invalid JSON")
+			return fmt.Errorf("Failed to read delete user response due to invalid JSON: %w", err)
 		}
 
-		errorMessage := fmt.Sprintf("%s: %s", errResponse.Error, errResponse.Description)
-		return errors.Wrap(errors.New(errorMessage), "Failed to delete user")
+		return fmt.Errorf("Failed to delete user: %s: %s", errResponse.Error, errResponse.Description)
 	}
-
-	return nil
 }

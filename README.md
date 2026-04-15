@@ -1,9 +1,11 @@
-# Pusher Beams Go Server SDK [![Build Status](https://travis-ci.org/pusher/push-notifications-go.svg?branch=master)](https://travis-ci.org/pusher/push-notifications-go)
+# Pusher Beams Go Server SDK
+
+Fork of [pusher/push-notifications-go](https://github.com/pusher/push-notifications-go) maintained by Pickleball Inc.
 
 ## Getting Started
 
 ```
-$ go get github.com/pusher/push-notifications-go
+$ go get github.com/pickleballinc/pusher-go-sdk
 ```
 
 ## Examples
