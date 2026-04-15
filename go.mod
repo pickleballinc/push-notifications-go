@@ -1,4 +1,4 @@
-module github.com/pickleballinc/pusher-go-sdk
+module github.com/pickleballinc/push-notifications-go
 
 go 1.23
 

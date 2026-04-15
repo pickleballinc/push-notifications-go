@@ -5,7 +5,7 @@ Fork of [pusher/push-notifications-go](https://github.com/pusher/push-notificati
 ## Getting Started
 
 ```
-$ go get github.com/pickleballinc/pusher-go-sdk
+$ go get github.com/pickleballinc/push-notifications-go
 ```
 
 ## Examples
